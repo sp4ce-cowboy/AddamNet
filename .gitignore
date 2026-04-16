@@ -3,7 +3,7 @@ __pycache__/
 *.pyo
 
 # Large binaries
-*.mp4
+#*.mp4
 *.pth
 *.ply
 *.db
