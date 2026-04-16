@@ -1,0 +1,321 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Pipeline Inspection Dashboard</title>
+<link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+
+<header>
+  <div class="header-left">
+    <div class="logo">⬡</div>
+    <h1>Pipeline Inspector</h1>
+  </div>
+  <div class="header-right">
+    <span class="status-dot" id="ws-dot"></span>
+    <span id="ws-label">Connecting…</span>
+  </div>
+</header>
+
+<nav id="tabs">
+  <button class="tab active" data-tab="live-feed">Live Feed</button>
+  <button class="tab" data-tab="sensors">Sensors</button>
+  <button class="tab" data-tab="defects">Defects</button>
+  <button class="tab" data-tab="slam">SLAM</button>
+  <button class="tab" data-tab="system">System</button>
+</nav>
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<!--  TAB: Live Feed                                            -->
+<!-- ═══════════════════════════════════════════════════════════ -->
+<section id="live-feed" class="panel active">
+  <div class="feed-dual">
+    <!-- YOLO Feed -->
+    <div class="feed-panel">
+      <div class="feed-label">Defect Detection</div>
+      <div class="feed-frame">
+        <img id="feed-img" alt="Video feed" src="">
+        <div class="feed-overlay" id="feed-overlay">Waiting for frames…</div>
+      </div>
+    </div>
+    <!-- SLAM Feed -->
+    <div class="feed-panel">
+      <div class="feed-label">SLAM Visualization</div>
+      <div class="feed-frame">
+        <img id="slam-feed-img" alt="SLAM visualization" src="">
+        <div class="feed-overlay" id="slam-feed-overlay">Waiting for SLAM frames…</div>
+      </div>
+    </div>
+  </div>
+  <!-- Video control bar -->
+  <div class="video-controls" id="video-controls">
+    <button class="vc-btn" id="vc-play" title="Play / Pause">▶</button>
+    <span class="vc-time" id="vc-current">0:00</span>
+    <div class="vc-seek-wrap">
+      <input type="range" id="vc-seek" class="vc-seek" min="0" max="10000" value="0" step="1">
+    </div>
+    <span class="vc-time" id="vc-duration">0:00</span>
+    <div class="vc-divider"></div>
+    <button class="vc-source-btn" id="vc-source" title="Switch source">
+      <span id="vc-source-icon">🎥</span>
+      <span id="vc-source-label">File</span>
+    </button>
+    <button class="vc-source-btn" id="vc-open-file" title="Open video file">📂 Open</button>
+    <input type="file" id="vc-file-input" accept="video/*" style="display:none">
+    <span class="vc-filename muted" id="vc-filename"></span>
+  </div>
+  <!-- Info bar below both feeds -->
+  <div class="feed-info-bar">
+    <div class="card info-card">
+      <h3>Inference</h3>
+      <p>Latency: <strong id="inf-ms">—</strong> ms</p>
+      <p>Detections: <strong id="inf-count">0</strong></p>
+    </div>
+    <div class="card info-card">
+      <h3>Current Detections</h3>
+      <ul id="det-list" class="det-list"><li class="empty">None</li></ul>
+    </div>
+    <div class="card info-card">
+      <h3>Quick Sensors</h3>
+      <p>Distance: <strong id="qs-dist">—</strong> cm</p>
+      <p>Speed: <strong id="qs-speed">—</strong> m/s</p>
+      <p>Air: <strong id="qs-air">—</strong></p>
+    </div>
+    <div class="card info-card">
+      <h3>SLAM Stats</h3>
+      <p>Map pts: <strong id="slam-live-pts">0</strong></p>
+      <p>Trajectory: <strong id="slam-live-traj">0</strong></p>
+      <p>Matches: <strong id="slam-live-matches">0</strong> · Inliers: <strong id="slam-live-inliers">0</strong></p>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<!--  TAB: Sensors                                              -->
+<!-- ═══════════════════════════════════════════════════════════ -->
+<section id="sensors" class="panel">
+  <div class="sensor-grid">
+    <div class="card sensor-card">
+      <div class="sensor-icon">🌡️</div>
+      <div class="sensor-label">Temperature</div>
+      <div class="sensor-value" id="s-temp">—</div>
+      <div class="sensor-unit">°C</div>
+    </div>
+    <div class="card sensor-card">
+      <div class="sensor-icon">💧</div>
+      <div class="sensor-label">Humidity</div>
+      <div class="sensor-value" id="s-hum">—</div>
+      <div class="sensor-unit">%</div>
+    </div>
+    <div class="card sensor-card">
+      <div class="sensor-icon">📏</div>
+      <div class="sensor-label">Ultrasonic</div>
+      <div class="sensor-value" id="s-ultra">—</div>
+      <div class="sensor-unit">cm</div>
+    </div>
+    <div class="card sensor-card">
+      <div class="sensor-icon">📡</div>
+      <div class="sensor-label">IR Distance</div>
+      <div class="sensor-value" id="s-ir">—</div>
+      <div class="sensor-unit">cm</div>
+    </div>
+    <div class="card sensor-card">
+      <div class="sensor-icon">⚡</div>
+      <div class="sensor-label">Avg Distance</div>
+      <div class="sensor-value" id="s-avgdist">—</div>
+      <div class="sensor-unit">cm</div>
+    </div>
+    <div class="card sensor-card">
+      <div class="sensor-icon">🚧</div>
+      <div class="sensor-label">Obstacle</div>
+      <div class="sensor-value" id="s-obstacle">—</div>
+      <div class="sensor-unit"></div>
+    </div>
+    <div class="card sensor-card">
+      <div class="sensor-icon">💨</div>
+      <div class="sensor-label">Air Quality</div>
+      <div class="sensor-value" id="s-aq">—</div>
+      <div class="sensor-unit" id="s-aq-raw"></div>
+    </div>
+    <div class="card sensor-card">
+      <div class="sensor-icon">🏎️</div>
+      <div class="sensor-label">Speed</div>
+      <div class="sensor-value" id="s-speed">—</div>
+      <div class="sensor-unit">m/s</div>
+    </div>
+    <div class="card sensor-card">
+      <div class="sensor-icon">📐</div>
+      <div class="sensor-label">Total Distance</div>
+      <div class="sensor-value" id="s-totdist">—</div>
+      <div class="sensor-unit">m</div>
+    </div>
+    <div class="card sensor-card">
+      <div class="sensor-icon">🏗️</div>
+      <div class="sensor-label">Acceleration</div>
+      <div class="sensor-value" id="s-accel">—</div>
+      <div class="sensor-unit">X / Y / Z m/s²</div>
+    </div>
+    <div class="card sensor-card">
+      <div class="sensor-icon">🔄</div>
+      <div class="sensor-label">Orientation</div>
+      <div class="sensor-value" id="s-orient">—</div>
+      <div class="sensor-unit">R / P / Y°</div>
+    </div>
+    <div class="card sensor-card">
+      <div class="sensor-icon">⏱️</div>
+      <div class="sensor-label">Uptime</div>
+      <div class="sensor-value" id="s-uptime">—</div>
+      <div class="sensor-unit">sec</div>
+    </div>
+    <div class="card sensor-card">
+      <div class="sensor-icon">🔌</div>
+      <div class="sensor-label">Tether</div>
+      <div class="sensor-value" id="s-tether">—</div>
+      <div class="sensor-unit"></div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<!--  TAB: Defects                                              -->
+<!-- ═══════════════════════════════════════════════════════════ -->
+<section id="defects" class="panel">
+  <!-- Pipeline Schematic -->
+  <div class="card" id="schematic-card" style="margin-bottom:1rem">
+    <h3>Linear Pipeline Schematic</h3>
+    <p class="muted">Defect positions mapped along the robot's travel distance. Pipe length scales automatically.</p>
+    <div class="schematic-wrap">
+      <canvas id="pipeline-canvas" height="48"></canvas>
+    </div>
+    <div class="schematic-legend" id="schematic-legend"></div>
+    <div class="schematic-axis" id="schematic-axis"></div>
+  </div>
+
+  <div class="defect-header">
+    <h2>Defect Event Log</h2>
+    <div style="display:flex;gap:.5rem">
+      <button id="btn-clear-defects" class="btn" style="color:var(--red)">Clear All</button>
+      <button id="btn-refresh-defects" class="btn">↻ Refresh</button>
+    </div>
+  </div>
+  <div class="defect-stats" id="defect-stats"></div>
+  <div class="table-wrap">
+    <table id="defect-table">
+      <thead>
+        <tr>
+          <th>ID</th>
+          <th>Time</th>
+          <th>Class</th>
+          <th>Confidence</th>
+          <th>Frame</th>
+          <th>Source</th>
+          <th>Distance (cm)</th>
+          <th>Speed (m/s)</th>
+          <th>Odometer (m)</th>
+          <th>Air</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody id="defect-tbody">
+        <tr><td colspan="11" class="empty">No defects recorded yet.</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<!--  TAB: SLAM                                                 -->
+<!-- ═══════════════════════════════════════════════════════════ -->
+<section id="slam" class="panel">
+  <!-- Quick actions -->
+  <div class="slam-actions">
+    <div class="card slam-action-card" id="slam-action-video" style="display:none">
+      <h3>Run SLAM on Current Video</h3>
+      <p class="muted">Batch-process the video file currently loaded in the Live Feed.</p>
+      <p class="muted" style="margin-top:.25rem">File: <strong id="slam-current-file">—</strong></p>
+      <button id="btn-slam-run-current" class="btn btn-accent" style="margin-top:.6rem">Run SLAM on Video</button>
+      <span id="slam-run-current-msg" class="muted" style="margin-left:.5rem"></span>
+    </div>
+    <div class="card slam-action-card" id="slam-action-live">
+      <h3>Export Live SLAM</h3>
+      <p class="muted">Save the current live SLAM map and trajectory as a 3D viewer.</p>
+      <p class="muted" style="margin-top:.25rem">Map pts: <strong id="slam-export-pts">0</strong> · Trajectory: <strong id="slam-export-traj">0</strong></p>
+      <button id="btn-slam-export" class="btn btn-accent" style="margin-top:.6rem">Export Live SLAM</button>
+      <span id="slam-export-msg" class="muted" style="margin-left:.5rem"></span>
+    </div>
+  </div>
+
+  <!-- Status & output -->
+  <div class="card" style="margin-top:.75rem">
+    <h3>SLAM Pipeline Status</h3>
+    <p>Status: <strong id="slam-msg">—</strong></p>
+    <p>Progress: <strong id="slam-pct">0</strong>%</p>
+    <div class="progress-bar"><div class="progress-fill" id="slam-bar" style="width:0%"></div></div>
+    <p>Last run: <strong id="slam-last">—</strong></p>
+    <p>Output files:</p>
+    <ul id="slam-files"><li class="empty">None yet</li></ul>
+    <div style="margin-top:1rem">
+      <span id="slam-viewer-na" class="muted">No viewer available yet.</span>
+      <div id="slam-viewer-wrap" style="display:none">
+        <iframe id="slam-viewer-iframe" src="" class="slam-viewer-embed"></iframe>
+      </div>
+    </div>
+    <hr style="margin:1.5rem 0;border-color:var(--border)">
+    <h3>Manual Run</h3>
+    <p class="muted">Enter a custom video file path on the Raspberry Pi.</p>
+    <div style="display:flex;gap:.5rem;margin-top:.5rem">
+      <input type="text" id="slam-video-input" placeholder="/home/pi/videos/pipe.mp4" style="flex:1">
+      <button id="btn-slam-run" class="btn btn-accent">Run SLAM</button>
+    </div>
+    <p id="slam-run-msg" class="muted" style="margin-top:.5rem"></p>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<!--  TAB: System Status                                        -->
+<!-- ═══════════════════════════════════════════════════════════ -->
+<section id="system" class="panel">
+  <div class="status-grid">
+    <div class="card status-card">
+      <span class="status-indicator" id="st-serial-dot"></span>
+      <div>
+        <div class="status-title">Serial Connection</div>
+        <div class="status-detail" id="st-serial-detail">—</div>
+      </div>
+    </div>
+    <div class="card status-card">
+      <span class="status-indicator" id="st-camera-dot"></span>
+      <div>
+        <div class="status-title">Camera / Video</div>
+        <div class="status-detail" id="st-camera-detail">—</div>
+      </div>
+    </div>
+    <div class="card status-card">
+      <span class="status-indicator" id="st-yolo-dot"></span>
+      <div>
+        <div class="status-title">YOLO Model</div>
+        <div class="status-detail" id="st-yolo-detail">—</div>
+      </div>
+    </div>
+    <div class="card status-card">
+      <span class="status-indicator" id="st-slam-dot"></span>
+      <div>
+        <div class="status-title">SLAM Module</div>
+        <div class="status-detail" id="st-slam-detail">—</div>
+      </div>
+    </div>
+    <div class="card status-card">
+      <span class="status-indicator" id="st-db-dot"></span>
+      <div>
+        <div class="status-title">Defect Database</div>
+        <div class="status-detail" id="st-db-detail">—</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<script src="/static/app.js"></script>
+</body>
+</html>

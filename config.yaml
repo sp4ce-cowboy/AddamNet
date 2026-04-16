@@ -1,0 +1,65 @@
+# ============================================================
+#  Pipeline Inspector — Configuration
+# ============================================================
+#  Copy this file and edit for the Raspberry Pi setup.
+#  All paths are relative to the project root unless absolute.
+# ============================================================
+
+# ── Video / Camera Source ──
+video:
+  # "webcam" or "file"
+  source: "webcam"
+  # webcam device index or /dev/videoN path
+  webcam_device: 0
+  # path to pre-recorded video (used when source == "file")
+  video_file: ""
+  # target processing FPS (lower = less CPU on RPi)
+  target_fps: 5
+  # frame width for processing (downscale from camera)
+  frame_width: 640
+  frame_height: 480
+
+# ── YOLO Defect Detection ──
+yolo:
+  model_path: "weights/best.pt"
+  confidence_threshold: 0.35
+  # inference size (smaller = faster on RPi)
+  imgsz: 320
+  # class names mapped by index
+  class_names:
+    0: "Deformation"
+    1: "Obstacle"
+    2: "Rupture"
+    3: "Disconnect"
+    4: "Misalignment"
+    5: "Deposition"
+
+# ── Serial / Arduino Sensors ──
+serial:
+  # "auto", a device path like "/dev/ttyUSB0", or "mock"
+  port: "/dev/ttyUSB0" # to run on mac, check with "ls -a /dev/tty*" command.
+  baud_rate: 115200
+  timeout: 2
+  # if true, generate fake sensor data when serial unavailable
+  mock_fallback: true
+
+# ── Defect Logging ──
+defects:
+  db_path: "data/defects.db"
+  # seconds of cooldown per class before logging again
+  cooldown_seconds: 5.0
+
+# ── SLAM ──
+slam:
+  output_dir: "data/slam_output"
+  # latest HTML viewer path (auto-populated after a run)
+  viewer_html: ""
+  # Live SLAM visualization on the Live Feed tab
+  live_enabled: true
+  # Process every Nth frame (higher = less CPU, 1 = every frame)
+  live_process_every_n: 2
+
+# ── Server ──
+server:
+  host: "127.0.0.1"
+  port: 8000
