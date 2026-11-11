@@ -41,6 +41,7 @@ specialisation in Robotics. Session 2025/2026.*
 <p align="center">
   <img width="88%" alt="The inspection dashboard: live YOLO defect detection beside monocular SLAM tracking" src="docs/images/dashboard-live.png" />
 </p>
+<p align="center"><sub>The <a href="https://sp4ce-cowboy.github.io/AddamNet/demo/">live demo</a>: the 7-epoch model on a dataset frame, beside live SLAM on the sample clip</sub></p>
 
 ## At a glance
 
