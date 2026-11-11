@@ -1,375 +1,123 @@
-# Pipeline Inspection Dashboard
-
-Integrated dashboard for autonomous pipeline inspection — combining embedded
-sensing, AI defect detection, and visual SLAM into a single Raspberry Pi 5
-application.
-
----
-
-## Project Structure
-
-```
-pipeline_inspector/
-├── run.py                          ← Entry point: starts the dashboard server
-├── config.yaml                     ← Central configuration (edit this)
-├── requirements.txt                ← Python dependencies
-├── README.md
-│
-├── app/
-│   ├── __init__.py
-│   ├── main.py                     ← FastAPI app: wires services, lifespan
-│   ├── config.py                   ← YAML config loader
-│   │
-│   ├── models/
-│   │   ├── __init__.py
-│   │   └── schemas.py              ← Pydantic models (SensorSnapshot, DefectEvent, etc.)
-│   │
-│   ├── services/
-│   │   ├── __init__.py
-│   │   ├── sensor_service.py       ← Arduino serial reader (background thread)
-│   │   ├── video_service.py        ← Webcam / video file capture (background thread)
-│   │   ├── yolo_service.py         ← YOLO inference + annotation
-│   │   ├── defect_logger.py        ← SQLite defect event storage with cooldown
-│   │   └── slam_service.py         ← SLAM pipeline wrapper
-│   │
-│   ├── api/
-│   │   ├── __init__.py
-│   │   └── routes.py               ← REST + WebSocket endpoints
-│   │
-│   └── static/
-│       ├── index.html              ← Dashboard UI (single-page, 5 tabs)
-│       ├── style.css               ← Dark industrial theme
-│       └── app.js                  ← WebSocket client + DOM updates
-│
-├── slam/
-│   ├── __init__.py
-│   ├── visual_slam.py              ← YOUR existing SLAM code (unchanged)
-│   ├── reconstruct_viewer.py       ← YOUR existing 3D viewer generator (unchanged)
-│   └── pipeline.py                 ← YOUR existing pipeline runner (unchanged)
-│
-├── weights/
-│   └── best.pt                     ← YOUR trained YOLO model weights
-│
-├── arduino/
-│   ├── sensor_suite.ino            ← YOUR Arduino sketch (reference copy)
-│   └── sample_sensor_readings.txt  ← Sample JSON output for reference
-│
-└── data/
-    ├── defects.db                  ← SQLite database (auto-created at runtime)
-    └── slam_output/                ← SLAM output directory (auto-created)
-```
-
----
-
-## Quick Start on Raspberry Pi 5
-
-### 1. Install dependencies
-
-```bash
-# Option A: System-wide (simpler)
-pip install -r requirements.txt --break-system-packages
-
-# Option B: Virtual environment (cleaner)
-python3 -m venv venv
-source venv/bin/activate
-pip install -r requirements.txt
-```
-
-### 2. Edit config.yaml
-
-Open `config.yaml` and adjust for your setup:
-
-```yaml
-video:
-  source: "webcam"          # "webcam" for live camera, "file" for pre-recorded
-  webcam_device: 0           # usually 0 for /dev/video0
-  video_file: "/path/to/your/video.mp4"  # used when source is "file"
-  target_fps: 5              # lower = less CPU usage
-
-serial:
-  port: "/dev/ttyUSB0"      # or "auto" to detect, or "mock" for fake data
-```
-
-### 3. Run
-
-```bash
-cd pipeline_inspector
-python3 run.py
-```
-
-### 4. Open the dashboard
-
-Navigate to `http://<raspberry-pi-ip>:8000` in any browser on the same network.
-
----
-
-## How Each Subsystem Connects
-
-### Architecture Diagram
-
-```
-┌───────────────────────────────────────────────────────────┐
-│                     Raspberry Pi 5                         │
-│                                                           │
-│  ┌──────────┐    serial     ┌───────────────┐            │
-│  │ Arduino  │──────────────▶│ sensor_service │            │
-│  │  Mega    │   JSON@115200 │  (bg thread)   │            │
-│  └──────────┘               └───────┬───────┘            │
-│                                     │ latest snapshot     │
-│  ┌──────────┐    OpenCV     ┌───────▼───────┐            │
-│  │  USB     │──────────────▶│ video_service  │            │
-│  │  Webcam  │   frames      │  (bg thread)   │            │
-│  └──────────┘               └───────┬───────┘            │
-│                                     │ frames              │
-│                             ┌───────▼───────┐            │
-│  ┌──────────┐               │ yolo_service   │            │
-│  │ best.pt  │──────────────▶│ (inference     │            │
-│  │ (YOLO)   │   model       │  bg thread)    │            │
-│  └──────────┘               └──┬────┬───────┘            │
-│                     detections │    │ annotated frames    │
-│                    ┌───────────▼┐   │                    │
-│                    │defect_logger│   │                    │
-│                    │  (SQLite)   │   │                    │
-│                    └─────────────┘   │                    │
-│                                     │                    │
-│                    ┌────────────────▼────────────┐       │
-│                    │       FastAPI Server         │       │
-│                    │  REST API + WebSocket        │       │
-│                    │  /api/* + /ws/live           │       │
-│                    └────────────┬────────────────┘       │
-│                                │                         │
-└────────────────────────────────┼─────────────────────────┘
-                                 │  HTTP / WS
-                    ┌────────────▼────────────┐
-                    │     Browser Dashboard    │
-                    │  Live Feed │ Sensors     │
-                    │  Defects   │ SLAM        │
-                    │  System Status           │
-                    └─────────────────────────┘
-```
-
-### Data Flow
-
-1. **sensor_service** runs a background thread that reads JSON lines from the
-   Arduino Mega's serial port. Each JSON line is parsed into a `SensorSnapshot`
-   and stored in memory as `sensor_service.latest`. The WebSocket pushes this
-   to the frontend at ~4 Hz.
-
-2. **video_service** runs a background thread that captures frames from either
-   the USB webcam (`cv2.VideoCapture(0)`) or a video file. Frames are
-   downscaled and rate-limited to the configured `target_fps`. The latest
-   frame is stored thread-safely.
-
-3. **yolo_service** loads `best.pt` at startup. A separate inference loop in
-   `main.py` pulls the latest frame from `video_service`, runs YOLO detection,
-   draws bounding boxes, and stores the annotated frame. The WebSocket sends
-   the annotated frame as base64 JPEG.
-
-4. **defect_logger** is called whenever YOLO produces detections. It applies
-   a per-class cooldown (default 5 seconds) to avoid spamming duplicate events,
-   then inserts a `DefectEvent` into the SQLite database along with the current
-   sensor snapshot.
-
-5. **slam_service** wraps your existing `visual_slam.py` and
-   `reconstruct_viewer.py`. It can run the full SLAM pipeline on a video file
-   in a background thread, tracking progress. The generated HTML viewer is
-   served at `/slam-viewer`.
-
----
-
-## How to Plug In the Real Arduino JSON Stream
-
-Your Arduino Mega sends JSON at 115200 baud over USB serial. The format from
-your `sample_sensor_readings.txt` is already fully supported.
-
-**Steps:**
-
-1. Plug the Arduino Mega into the Raspberry Pi via USB.
-2. Find the port:
-   ```bash
-   ls /dev/ttyUSB* /dev/ttyACM*
-   ```
-   It will typically be `/dev/ttyUSB0` or `/dev/ttyACM0`.
-
-3. Set the port in `config.yaml`:
-   ```yaml
-   serial:
-     port: "/dev/ttyUSB0"   # or "auto" to auto-detect
-   ```
-
-4. If you get permission errors:
-   ```bash
-   sudo usermod -aG dialout $USER
-   # then log out and back in
-   ```
-
-5. The dashboard will immediately start showing live sensor values.
-
-**Mock mode:** If the Arduino is not connected and `mock_fallback: true` is set
-(the default), the system generates realistic fake sensor data so the dashboard
-still works for development and demonstration.
-
----
-
-## How to Swap Between Live Webcam and Pre-recorded Video
-
-Edit `config.yaml`:
-
-```yaml
-video:
-  # For live USB webcam:
-  source: "webcam"
-  webcam_device: 0
-
-  # For pre-recorded video:
-  source: "file"
-  video_file: "/home/pi/videos/sewage.mp4"
-```
-
-The same YOLO inference pipeline runs on both sources. When using a video file,
-it loops automatically when it reaches the end.
-
-**Fallback:** If `source: "webcam"` but the webcam is unavailable, and a
-`video_file` path is configured, the system automatically falls back to the
-video file.
-
----
-
-## How Defect Events Are Recorded
-
-When YOLO detects one or more objects in a frame:
-
-1. Each detection has a `class_name` and `confidence` score.
-
-2. The **cooldown mechanism** checks: "Has this class been logged in the last
-   N seconds?" (configurable via `defects.cooldown_seconds`, default 5s).
-   If yes, the detection is skipped. This prevents the log from being flooded
-   with duplicate entries when the camera sees the same defect across many
-   consecutive frames.
-
-3. If the cooldown has elapsed, a `DefectEvent` is created containing:
-   - Timestamp
-   - Defect class name (Deformation, Obstacle, Rupture, Disconnect,
-     Misalignment, or Deposition)
-   - Confidence score
-   - Frame number
-   - Video source identifier
-   - **Current sensor snapshot** (temperature, humidity, distance readings,
-     speed, odometer, air quality) — this is the key integration point between
-     the AI and embedded subsystems.
-
-4. The event is inserted into the SQLite database at `data/defects.db`.
-
-5. The Defects tab on the dashboard shows all events in a sortable table,
-   with per-class statistics and color-coded rows.
-
----
-
-## How to Later Attach the Real SLAM Pipeline
-
-The SLAM integration is designed as a practical integration point that can
-be upgraded incrementally:
-
-### Current capability (already working):
-- The SLAM tab shows pipeline status and output files.
-- You can trigger a SLAM run on any video file from the dashboard.
-- The run executes your `visual_slam.py` → `reconstruct_viewer.py` pipeline
-  in a background thread with progress tracking.
-- The generated 3D HTML viewer is served directly at `/slam-viewer`.
-
-### To run SLAM:
-1. Go to the SLAM tab in the dashboard.
-2. Enter the full path to a video file on the Pi.
-3. Click "Run SLAM".
-4. Watch the progress bar. When complete, click "Open 3D Viewer".
-
-Alternatively via API:
-```bash
-curl -X POST "http://localhost:8000/api/slam/run?video_path=/home/pi/videos/pipe.mp4"
-```
-
-### Future upgrade path to semi-live SLAM:
-The `slam_service.py` module is structured so you can add:
-- A method that processes frames incrementally (from `video_service`)
-- Status updates pushed via the existing WebSocket
-- Periodic regeneration of the HTML viewer
-
-The SLAM modules in `slam/` are your original files, completely unchanged.
-Any improvements you make to them will automatically be used by the dashboard.
-
----
-
-## Performance Notes for Raspberry Pi 5
-
-### Expected bottlenecks:
-1. **YOLO inference** — The biggest CPU consumer. At `imgsz=320` and
-   `target_fps=5`, expect ~200-400ms per frame on the Pi 5 CPU. This is
-   manageable at 2-5 FPS.
-
-2. **Video capture** — OpenCV's VideoCapture is lightweight. The
-   `target_fps` setting skips frames so the camera doesn't pile up a buffer.
-
-3. **WebSocket streaming** — Base64 JPEG encoding adds ~5-10ms per frame.
-   The JPEG quality is set to 45 for WebSocket to minimize bandwidth.
-
-4. **SLAM processing** — This is offline (runs on pre-recorded video), so it
-   doesn't compete with live inference. It will take several minutes for a
-   typical video.
-
-### Tuning for performance:
-- Lower `target_fps` in config (3 FPS is still very usable)
-- Lower `yolo.imgsz` to 256 (faster inference, slightly less accuracy)
-- Lower `video.frame_width` / `frame_height` to 480×360
-- The sensor service is very lightweight (~1 Hz serial reads)
-
-### Memory:
-On a 4GB Pi 5, the YOLO model (~6MB) plus OpenCV frames plus the web server
-should comfortably fit within 1-2GB. The remaining memory is available for
-SLAM processing when triggered.
-
----
-
-## Where Each of Your Files Went
-
-| Your original file           | Location in project                    | Changes made                          |
-|------------------------------|----------------------------------------|---------------------------------------|
-| `serial_reader.py`           | Logic adapted into `app/services/sensor_service.py` | Wrapped as threaded service, added mock mode, JSON parsing to Pydantic model |
-| `sensor_suite.ino`           | `arduino/sensor_suite.ino`             | Unchanged (reference copy)            |
-| `sample_sensor_readings.txt` | `arduino/sample_sensor_readings.txt`   | Unchanged (reference copy)            |
-| `best.pt`                    | `weights/best.pt`                      | Unchanged (YOLO weights)              |
-| `visual_slam.py`             | `slam/visual_slam.py`                  | Unchanged                             |
-| `reconstruct_viewer.py`      | `slam/reconstruct_viewer.py`           | Unchanged                             |
-| `pipeline.py`                | `slam/pipeline.py`                     | Unchanged (can still be run standalone) |
-
----
-
-## Assumptions
-
-1. **Raspberry Pi 5 (4GB)** running Raspberry Pi OS (Bookworm, 64-bit).
-2. **Python 3.11+** available system-wide.
-3. **USB webcam** at `/dev/video0` (Logitech UVC). If absent, mock/file mode.
-4. **Arduino Mega** at `/dev/ttyUSB0` sending JSON at 115200 baud. If absent,
-   mock sensor data is generated.
-5. **No GPU** — YOLO runs on CPU. The `imgsz=320` setting keeps inference
-   manageable on the Pi's ARM Cortex-A76 cores.
-6. **Network access** — The dashboard is served on port 8000 and is accessible
-   from any device on the same LAN.
-7. **SLAM is offline** — Runs on pre-recorded video, not live feed. This is
-   by design for the Pi's resource constraints.
-
----
-
-## API Reference
-
-| Method | Endpoint               | Description                              |
-|--------|------------------------|------------------------------------------|
-| GET    | `/`                    | Dashboard HTML                           |
-| GET    | `/api/sensors`         | Latest sensor snapshot (JSON)            |
-| GET    | `/api/defects?limit=N` | Recent defect events (JSON array)        |
-| GET    | `/api/status`          | System status summary                    |
-| GET    | `/api/slam`            | SLAM pipeline status                     |
-| POST   | `/api/slam/run?video_path=...` | Trigger SLAM run                 |
-| GET    | `/api/feed/frame`      | Latest annotated JPEG frame              |
-| GET    | `/api/detections`      | Current frame detections                 |
-| GET    | `/slam-viewer`         | Serve generated SLAM 3D HTML viewer      |
-| WS     | `/ws/live`             | Real-time sensor + frame + detection stream |
+<div align="center">
+
+# AddamNet
+
+**Autonomous defect detection and 3D mapping inside underground waste pipes.**<br>
+The sensing and intelligence stack for an unmanned robot that inspects Singapore's Pneumatic
+Waste Conveyance System (PWCS) pipes: embedded sensing, YOLOv8 defect detection, monocular visual
+SLAM and a live dashboard, all on a Raspberry Pi 5. My B.Eng. dissertation at NUS, graded A.
+
+**[▶ Live 3D reconstruction viewer](https://sp4ce-cowboy.github.io/AddamNet/slam-viewer/)**
+
+[![Python](https://img.shields.io/badge/Python-3-3776AB?logo=python&logoColor=white)](https://github.com/sp4ce-cowboy/AddamNet/blob/7c47efae85a2158621a294750ad775ef63fd990b/slam/visual_slam.py)
+[![OpenCV](https://img.shields.io/badge/OpenCV-4-5C3EE8?logo=opencv&logoColor=white)](https://github.com/sp4ce-cowboy/AddamNet/blob/7c47efae85a2158621a294750ad775ef63fd990b/slam/visual_slam.py#L199-L243)
+[![YOLOv8](https://img.shields.io/badge/YOLOv8n-Ultralytics-111F68)](ARCHITECTURE.md#4-defect-detection-yolov8)
+[![Arduino](https://img.shields.io/badge/Arduino-Mega%202560-00878F?logo=arduino&logoColor=white)](https://github.com/sp4ce-cowboy/AddamNet/blob/7c47efae85a2158621a294750ad775ef63fd990b/arduino/sensor_suite.ino)
+[![Raspberry Pi](https://img.shields.io/badge/Raspberry%20Pi-5-A22846?logo=raspberrypi&logoColor=white)](ARCHITECTURE.md#2-system-architecture)
+[![NumPy](https://img.shields.io/badge/NumPy%20%C2%B7%20SciPy-3D%20reconstruction-013243?logo=numpy&logoColor=white)](https://github.com/sp4ce-cowboy/AddamNet/blob/7c47efae85a2158621a294750ad775ef63fd990b/slam/reconstruct_viewer.py#L69-L195)
+[![Three.js](https://img.shields.io/badge/Three.js-r128%20viewer-000000?logo=threedotjs&logoColor=white)](https://sp4ce-cowboy.github.io/AddamNet/slam-viewer/)
+[![FastAPI](https://img.shields.io/badge/FastAPI-dashboard-009688?logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com)
+
+![Grade](https://img.shields.io/badge/dissertation-grade%20A-2ea44f?style=flat-square)
+![Dataset](https://img.shields.io/badge/training%20data-22k%20labelled%20images-555?style=flat-square)
+![Sensors](https://img.shields.io/badge/sensors-6-555?style=flat-square)
+![Report](https://img.shields.io/badge/report-59%20pages-555?style=flat-square)
+
+</div>
+
+> [!NOTE]
+> This consolidated README page was added by [Claude](https://docs.anthropic.com/en/docs/claude-code)
+> using my [agentic-repo-analysis](https://github.com/sp4ce-cowboy/agentic-workflows) skill, from the
+> project's code, git history and my dissertation. The original README, the dashboard's set-up guide,
+> is in **[DOCUMENTATION.md](DOCUMENTATION.md)**. The technical write-up is in **[ARCHITECTURE.md](ARCHITECTURE.md)**.
+
+<p align="center">
+  <img width="88%" alt="The inspection dashboard: live YOLO defect detection beside monocular SLAM tracking" src="docs/images/dashboard-live.png" />
+</p>
+
+## At a glance
+
+| | |
+|---|---|
+| **What** | The sensing and intelligence stack for an unmanned PWCS pipe-inspection robot: a six-sensor embedded system, AI defect detection, 3D mapping of the pipe interior, and a live dashboard, running on low-cost hardware with no internet |
+| **Context** | NUS ME4101A Bachelor of Engineering Dissertation, AY2025/26, supervised by Prof. Chew Chee Meng. Graded A |
+| **My role** | Individual project: requirements, hardware, Arduino firmware, dataset and model training, the SLAM and 3D-reconstruction pipeline, system integration, and the 59-page report |
+| **Domains** | Embedded systems · computer vision · machine learning · robotics (SLAM) · web |
+| **AI use** | As acknowledged in the dissertation, the dashboard prototype (`app/`) was generated with Claude Opus 4.6; the firmware, model, SLAM and reconstruction code are mine |
+
+## The problem
+
+Singapore's public housing estates move refuse through buried PWCS pipes, using high-speed air
+suction. The pipes last about 30 years before costly replacement, and inspecting them today means
+workers entering confined spaces, after something has already gone wrong. This project is part of
+a wider effort to extend pipe life from 30 to 45 years by finding defects early, with a robot
+instead of a person.
+
+## What it does
+
+<p align="center">
+  <img width="48%" alt="The embedded system: webcam, Raspberry Pi 5, Arduino Mega and the sensor suite" src="docs/images/hardware.jpg" />
+  <img width="48%" alt="System architecture from sensors to the dashboard" src="docs/images/system-architecture.png" />
+</p>
+<p align="center"><sub>The embedded system as built (1 webcam · 2 Raspberry Pi 5 · 3 Arduino Mega 2560 · 4 breadboard · 5 ultrasonic · 6 IMU · 7 IR obstacle · 8 temperature/humidity · 9 keypad) and its architecture</sub></p>
+
+- **Senses the pipe.** An Arduino Mega reads six sensors: an IMU, ultrasonic and infrared distance,
+  an IR obstacle sensor, gas (air quality), and temperature and humidity. It streams JSON packets to
+  the Pi, including orientation, speed, distance travelled and a tether warning.
+- **Finds defects.** A YOLOv8n model trained on about 22,000 labelled images detects six defect
+  classes (deformation, obstacle, rupture, disconnect, misalignment, deposition) on the Pi's CPU.
+- **Maps the pipe in 3D.** A monocular visual SLAM pipeline tracks the camera and builds a sparse 3D
+  map. A reconstruction step turns the map into a surface mesh and an interactive 3D viewer.
+- **Shows it all live.** A five-tab web dashboard shows the annotated video, telemetry, a defect log
+  laid along the pipe, the 3D reconstruction, and system health.
+
+<p align="center">
+  <img width="48%" alt="Interactive SLAM 3D viewer: point cloud, mesh and camera trajectory" src="docs/images/slam-viewer.png" />
+  <img width="48%" alt="Live sensor telemetry" src="docs/images/dashboard-sensors.png" />
+</p>
+<p align="center">
+  <img width="80%" alt="Defects laid out along a linear pipeline schematic" src="docs/images/dashboard-defects.png" />
+</p>
+<p align="center"><sub>The 3D viewer (2,334 points, 24,025 faces, 254 camera poses; <a href="https://sp4ce-cowboy.github.io/AddamNet/slam-viewer/">try it live</a>) · live telemetry · defects along the pipe. Dashboard captures from a sample pipe video, with the sensors simulated</sub></p>
+
+## Skills shown
+
+| Skill | Where it shows (click the links for the code) | Docs |
+|---|---|---|
+| **Embedded firmware**<br><img alt="Arduino" src="https://img.shields.io/badge/Arduino-C%2B%2B-00878F?logo=arduino&logoColor=white"> | Six-sensor firmware with JSON output and per-sensor enable switches: [`sensor_suite.ino`](https://github.com/sp4ce-cowboy/AddamNet/blob/7c47efae85a2158621a294750ad775ef63fd990b/arduino/sensor_suite.ino); IMU bias calibration over 500 samples: [`mpuCalibrate`](https://github.com/sp4ce-cowboy/AddamNet/blob/7c47efae85a2158621a294750ad775ef63fd990b/arduino/sensor_suite.ino#L256-L305) | [Arduino](https://docs.arduino.cc) |
+| **Visual SLAM**<br><img alt="OpenCV" src="https://img.shields.io/badge/OpenCV-4-5C3EE8?logo=opencv&logoColor=white"> | ORB/FAST features, KLT optical-flow tracking, RANSAC essential-matrix pose recovery: [`track_klt`, `estimate_pose`](https://github.com/sp4ce-cowboy/AddamNet/blob/7c47efae85a2158621a294750ad775ef63fd990b/slam/visual_slam.py#L175-L243); triangulation and reprojection filtering: [`triangulate_points`](https://github.com/sp4ce-cowboy/AddamNet/blob/7c47efae85a2158621a294750ad775ef63fd990b/slam/visual_slam.py#L86-L128) | [OpenCV calib3d](https://docs.opencv.org/4.x/d9/d0c/group__calib3d.html) |
+| **3D surface reconstruction**<br><img alt="SciPy" src="https://img.shields.io/badge/SciPy-KDTree%20%C2%B7%20Delaunay-8CAAE6?logo=scipy&logoColor=white"> | Statistical outlier removal, normal estimation and alpha-shape meshing of the point cloud: [`reconstruct_viewer.py`](https://github.com/sp4ce-cowboy/AddamNet/blob/7c47efae85a2158621a294750ad775ef63fd990b/slam/reconstruct_viewer.py#L69-L195) | [scipy.spatial](https://docs.scipy.org/doc/scipy/reference/spatial.html) |
+| **Object detection**<br><img alt="YOLOv8" src="https://img.shields.io/badge/YOLOv8n-Ultralytics-111F68"> | Transfer learning from COCO weights on six defect classes; the trained model: [`weights/`](https://github.com/sp4ce-cowboy/AddamNet/tree/7c47efae85a2158621a294750ad775ef63fd990b/weights) | [Ultralytics](https://docs.ultralytics.com) |
+| **Edge deployment**<br><img alt="Raspberry Pi" src="https://img.shields.io/badge/Raspberry%20Pi-5-A22846?logo=raspberrypi&logoColor=white"> | CPU-only inference at 2–5 fps with no internet or accelerator; serial link at 115,200 baud: [`config.yaml`](https://github.com/sp4ce-cowboy/AddamNet/blob/7c47efae85a2158621a294750ad775ef63fd990b/config.yaml) | [Raspberry Pi](https://www.raspberrypi.com/documentation/) |
+| **Interactive 3D on the web**<br><img alt="Three.js" src="https://img.shields.io/badge/Three.js-r128-000000?logo=threedotjs&logoColor=white"> | The generated viewer: point cloud, mesh, trajectory, colour modes: [live demo](https://sp4ce-cowboy.github.io/AddamNet/slam-viewer/) | [Three.js](https://threejs.org/docs/) |
+| **System integration** | Firmware, model and SLAM wired into one FastAPI and WebSocket dashboard (the dashboard prototype generated with Claude): [`app/`](https://github.com/sp4ce-cowboy/AddamNet/tree/7c47efae85a2158621a294750ad775ef63fd990b/app) | [FastAPI](https://fastapi.tiangolo.com) |
+| **Research & technical writing** | A 59-page dissertation: literature, design, evaluation, limitations and future work | — |
+
+## Results
+
+- **End to end on low-cost hardware.** Sensing, detection, mapping and the dashboard all run
+  together on a Raspberry Pi 5, with no internet and no AI accelerator.
+- **IMU calibration.** A start-up routine averaging 500 stationary readings removed a gyroscope bias
+  of about −3.4 °/s on one axis, which would have caused over 200° of orientation error a minute.
+  Residual drift came down to under 0.5 °/s.
+- **Detection.** Runs at 2–5 fps on the Pi's CPU. The reported model is a single-epoch baseline
+  (mAP@0.5 of 0.24), so longer training is the first next step.
+- **Mapping.** Produces a camera trajectory and a sparse 3D map of the pipe interior. Monocular SLAM
+  is scale-ambiguous and has no loop closure yet.
+
+**Next steps (from the dissertation):** longer training, an RGB-D camera (Intel RealSense D405) for
+metric dense mapping, a Hailo-8 or Jetson accelerator, and placing each detection on the 3D map.
+
+## Getting started
+
+See [DOCUMENTATION.md](DOCUMENTATION.md) for the full set-up on a Raspberry Pi 5. On a laptop, set
+`video.source: "file"` in `config.yaml` with a sample video. Sensors fall back to simulated data
+when no Arduino is connected. Then run `python3 run.py` and open `http://127.0.0.1:8000`.
+
+## On my resume
+
+- Designed and built the sensing and intelligence stack for an unmanned robot inspecting Singapore's pneumatic waste conveyance pipes (B.Eng. dissertation, graded A): a two-tier Raspberry Pi 5 and Arduino Mega platform, a six-sensor suite, YOLOv8 defect detection, monocular visual SLAM and a live web dashboard.
+- Wrote Arduino firmware for six sensors (IMU, ultrasonic and infrared ranging, IR obstacle, gas, temperature and humidity) streaming JSON over a 115,200-baud serial link. A 500-sample start-up calibration cut gyroscope drift from about 3.4 °/s to under 0.5 °/s.
+- Implemented a monocular visual SLAM pipeline in Python and OpenCV: ORB/FAST features with KLT optical-flow tracking, RANSAC essential-matrix pose recovery, and triangulation with reprojection filtering. It produces a camera trajectory and a sparse 3D map of the pipe interior.
+- Built a surface-reconstruction step that removes outliers, estimates normals and alpha-shape meshes the SLAM point cloud (NumPy, SciPy), and exports it as an interactive Three.js viewer, live on GitHub Pages.
+- Trained a YOLOv8n detector by transfer learning on about 22,000 labelled images across six defect classes, chosen for CPU-only inference on the Raspberry Pi (2–5 fps), and integrated the firmware, model and SLAM into a FastAPI and WebSocket dashboard.
