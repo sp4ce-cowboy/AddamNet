@@ -26,10 +26,12 @@ SLAM and a live dashboard, all on a Raspberry Pi 5. My B.Eng. dissertation at NU
 </div>
 
 > [!NOTE]
-> This consolidated README page was added by [Claude](https://docs.anthropic.com/en/docs/claude-code)
-> using my [agentic-repo-analysis](https://github.com/sp4ce-cowboy/agentic-workflows) skill, from the
-> project's code, git history and my dissertation. The original README, the dashboard's set-up guide,
-> is in **[DOCUMENTATION.md](DOCUMENTATION.md)**. The technical write-up is in **[ARCHITECTURE.md](ARCHITECTURE.md)**.
+> This consolidated README page was added by
+> [Claude](https://docs.anthropic.com/en/docs/claude-code) on 11 Nov 2026 using my
+> [agentic-repo-analysis](https://github.com/sp4ce-cowboy/agentic-workflows) skill, from the
+> project's code, git history and my dissertation. The project itself is from Aug 2025 – Apr 2026.
+> The original README, the dashboard's set-up guide, is in **[DOCUMENTATION.md](DOCUMENTATION.md)**.
+> The technical write-up is in **[ARCHITECTURE.md](ARCHITECTURE.md)**.
 
 <p align="center">
   <img width="88%" alt="The inspection dashboard: live YOLO defect detection beside monocular SLAM tracking" src="docs/images/dashboard-live.png" />
