@@ -27,11 +27,12 @@ SLAM and a live dashboard, all on a Raspberry Pi 5. My B.Eng. dissertation at NU
 
 > [!NOTE]
 > This consolidated README page was added by
-> [Claude](https://docs.anthropic.com/en/docs/claude-code) on 11 Nov 2026 using my
+> [Claude Opus 5.5](https://docs.anthropic.com/en/docs/claude-code) in Nov 2026 using my
 > [agentic-repo-analysis](https://github.com/sp4ce-cowboy/agentic-workflows) skill, from the
 > project's code, git history and my dissertation. The project itself is from Aug 2025 – Apr 2026.
-> The original README, the dashboard's set-up guide, is in **[DOCUMENTATION.md](DOCUMENTATION.md)**.
-> The technical write-up is in **[ARCHITECTURE.md](ARCHITECTURE.md)**.
+> The original README, the dashboard's set-up guide, is in
+> **[README-ORIGINAL.md](README-ORIGINAL.md)**. The technical write-up is in
+> **[ARCHITECTURE.md](ARCHITECTURE.md)**.
 
 <p align="center">
   <img width="88%" alt="The inspection dashboard: live YOLO defect detection beside monocular SLAM tracking" src="docs/images/dashboard-live.png" />
@@ -110,12 +111,6 @@ instead of a person.
 **Next steps (from the dissertation):** longer training, an RGB-D camera (Intel RealSense D405) for
 metric dense mapping, a Hailo-8 or Jetson accelerator, and placing each detection on the 3D map.
 
-## Getting started
-
-See [DOCUMENTATION.md](DOCUMENTATION.md) for the full set-up on a Raspberry Pi 5. On a laptop, set
-`video.source: "file"` in `config.yaml` with a sample video. Sensors fall back to simulated data
-when no Arduino is connected. Then run `python3 run.py` and open `http://127.0.0.1:8000`.
-
 ## On my resume
 
 - Designed and built the sensing and intelligence stack for an unmanned robot inspecting Singapore's pneumatic waste conveyance pipes (B.Eng. dissertation, graded A): a two-tier Raspberry Pi 5 and Arduino Mega platform, a six-sensor suite, YOLOv8 defect detection, monocular visual SLAM and a live web dashboard.
@@ -123,3 +118,9 @@ when no Arduino is connected. Then run `python3 run.py` and open `http://127.0.0
 - Implemented a monocular visual SLAM pipeline in Python and OpenCV: ORB/FAST features with KLT optical-flow tracking, RANSAC essential-matrix pose recovery, and triangulation with reprojection filtering. It produces a camera trajectory and a sparse 3D map of the pipe interior.
 - Built a surface-reconstruction step that removes outliers, estimates normals and alpha-shape meshes the SLAM point cloud (NumPy, SciPy), and exports it as an interactive Three.js viewer, live on GitHub Pages.
 - Trained a YOLOv8n detector by transfer learning on about 22,000 labelled images across six defect classes, chosen for CPU-only inference on the Raspberry Pi (2–5 fps), and integrated the firmware, model and SLAM into a FastAPI and WebSocket dashboard.
+
+## Getting started
+
+See [README-ORIGINAL.md](README-ORIGINAL.md) for the full set-up on a Raspberry Pi 5. On a laptop, set
+`video.source: "file"` in `config.yaml` with a sample video. Sensors fall back to simulated data
+when no Arduino is connected. Then run `python3 run.py` and open `http://127.0.0.1:8000`.

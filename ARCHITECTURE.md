@@ -1,8 +1,9 @@
 # AddamNet: architecture
 
 > [!NOTE]
-> This architecture write-up was added by [Claude](https://docs.anthropic.com/en/docs/claude-code)
-> using my [agentic-repo-analysis](https://github.com/sp4ce-cowboy/agentic-workflows) skill, from the
+> This architecture write-up was added by
+> [Claude Opus 5.5](https://docs.anthropic.com/en/docs/claude-code) in Nov 2026 using my
+> [agentic-repo-analysis](https://github.com/sp4ce-cowboy/agentic-workflows) skill, from the
 > project's code, git history and documentation.
 
 A technical write-up of AddamNet, my B.Eng. dissertation (NUS ME4101A, AY2025/26, graded A),
