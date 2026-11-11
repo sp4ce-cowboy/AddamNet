@@ -6,8 +6,9 @@
 > [agentic-repo-analysis](https://github.com/sp4ce-cowboy/agentic-workflows) skill, from the
 > project's code, git history and documentation.
 
-A technical write-up of AddamNet, my B.Eng. dissertation (NUS ME4101A, AY2025/26, graded A),
-from the code and the 59-page report. Back to the [README](README.md).
+A technical write-up of AddamNet, my B.Eng. dissertation (NUS ME4101A, AY2025/26, supervised by
+[Prof. Chew Chee Meng](https://cde.nus.edu.sg/me/staff/chew-chee-meng-2/) ([Google Scholar](https://scholar.google.com/citations?user=woLCMSYAAAAJ)), graded A), from the code and the
+[59-page dissertation](docs/dissertation/AddamNet-dissertation.pdf). Back to the [README](README.md).
 
 **Contents:**
 1. [Requirements and constraints](#1-requirements-and-constraints)
@@ -155,9 +156,8 @@ The result for the sample pipe run has 2,334 points, 24,025 faces and 254 camera
 
 ## 7. The dashboard
 
-As acknowledged in the dissertation, the dashboard prototype in `app/` was generated with
-Claude Opus 4.6, around my existing SLAM code, viewer generator, Arduino sketch and trained
-weights. I integrated and deployed it.
+The dashboard in `app/` brings the SLAM code, the viewer generator, the Arduino stream and the
+trained weights together in one application on the Pi.
 
 - **Back end:** FastAPI. A lifespan starts background services for serial sensors (with a
   simulated fallback), video capture (webcam or file), YOLO inference, SQLite defect logging

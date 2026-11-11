@@ -13,7 +13,8 @@ fulfilment of the requirements for the Degree of Bachelor of Engineering, as par
 specialisation in Robotics. Session 2025/2026.*
 
 **[▶ Try the dashboard (live demo)](https://sp4ce-cowboy.github.io/AddamNet/demo/)** ·
-**[3D reconstruction viewer](https://sp4ce-cowboy.github.io/AddamNet/slam-viewer/)**
+**[3D reconstruction viewer](https://sp4ce-cowboy.github.io/AddamNet/slam-viewer/)** ·
+**[Dissertation (PDF)](docs/dissertation/AddamNet-dissertation.pdf)**
 
 [![Python](https://img.shields.io/badge/Python-3-3776AB?logo=python&logoColor=white)](https://github.com/sp4ce-cowboy/AddamNet/blob/7c47efae85a2158621a294750ad775ef63fd990b/slam/visual_slam.py)
 [![OpenCV](https://img.shields.io/badge/OpenCV-4-5C3EE8?logo=opencv&logoColor=white)](https://github.com/sp4ce-cowboy/AddamNet/blob/7c47efae85a2158621a294750ad775ef63fd990b/slam/visual_slam.py#L199-L243)
@@ -23,9 +24,11 @@ specialisation in Robotics. Session 2025/2026.*
 [![NumPy](https://img.shields.io/badge/NumPy%20%C2%B7%20SciPy-3D%20reconstruction-013243?logo=numpy&logoColor=white)](https://github.com/sp4ce-cowboy/AddamNet/blob/7c47efae85a2158621a294750ad775ef63fd990b/slam/reconstruct_viewer.py#L69-L195)
 [![Three.js](https://img.shields.io/badge/Three.js-r128-000000?logo=threedotjs&logoColor=white)](https://sp4ce-cowboy.github.io/AddamNet/slam-viewer/)
 
+[![Training data](https://img.shields.io/badge/training%20data-22k%20labelled%20images-555?style=flat-square&logo=kaggle&logoColor=white)](https://www.kaggle.com/datasets/simplexitypipeline/pipeline-defect-dataset)
+[![Sensors](https://img.shields.io/badge/sensors-6-555?style=flat-square)](ARCHITECTURE.md#3-embedded-sensing)
+[![3D viewer](https://img.shields.io/badge/3D%20map-2%2C334%20points-555?style=flat-square)](https://sp4ce-cowboy.github.io/AddamNet/slam-viewer/)
 [![Live demo](https://img.shields.io/badge/live%20demo-dashboard-555?style=flat-square)](https://sp4ce-cowboy.github.io/AddamNet/demo/)
-[![3D viewer](https://img.shields.io/badge/3D%20viewer-2%2C334%20points-555?style=flat-square)](https://sp4ce-cowboy.github.io/AddamNet/slam-viewer/)
-[![Dataset](https://img.shields.io/badge/dataset-Pipeline%20Defect%20Dataset-555?style=flat-square&logo=kaggle&logoColor=white)](https://www.kaggle.com/datasets/simplexitypipeline/pipeline-defect-dataset)
+[![Dissertation](https://img.shields.io/badge/dissertation-59%20pages-555?style=flat-square)](docs/dissertation/AddamNet-dissertation.pdf)
 
 </div>
 
@@ -48,11 +51,10 @@ specialisation in Robotics. Session 2025/2026.*
 | | |
 |---|---|
 | **What** | The sensing and intelligence stack for an unmanned PWCS pipe-inspection robot: a six-sensor embedded system, AI defect detection, 3D mapping of the pipe interior, and a live dashboard, running on low-cost hardware with no internet |
-| **Context** | NUS ME4101A Bachelor of Engineering Dissertation (Final Year Project), Department of Mechanical Engineering, AY2025/26, supervised by Prof. Chew Chee Meng. Graded A |
+| **Context** | NUS ME4101A Bachelor of Engineering Dissertation (Final Year Project), Department of Mechanical Engineering, AY2025/26, supervised by [Prof. Chew Chee Meng](https://cde.nus.edu.sg/me/staff/chew-chee-meng-2/) ([Google Scholar](https://scholar.google.com/citations?user=woLCMSYAAAAJ)). Graded A. [The dissertation (PDF)](docs/dissertation/AddamNet-dissertation.pdf) |
 | **My role** | Individual project: requirements, hardware, Arduino firmware, training the model on a public dataset, the SLAM and 3D-reconstruction pipeline, system integration, and the 59-page report |
 | **Dataset** | The [Pipeline Defect Dataset](https://www.kaggle.com/datasets/simplexitypipeline/pipeline-defect-dataset) by simplexity-Pipeline on Kaggle ([CC BY-NC-SA 4.0](https://creativecommons.org/licenses/by-nc-sa/4.0/)): 22,120 images (17,639 for training, 4,481 for validation) across six defect classes |
 | **Domains** | Embedded systems · computer vision · machine learning · robotics (SLAM) · web |
-| **AI use** | As acknowledged in the dissertation, the dashboard prototype (`app/`) was generated with Claude Opus 4.6; the firmware, model, SLAM and reconstruction code are mine |
 
 ## The problem
 
@@ -104,7 +106,7 @@ years by finding defects early, with a robot instead of a person.
 | **Object detection**<br><img alt="YOLOv8" src="https://img.shields.io/badge/YOLOv8n-Ultralytics-111F68"> | Transfer learning from COCO weights on six defect classes; the trained model: [`weights/`](https://github.com/sp4ce-cowboy/AddamNet/tree/7c47efae85a2158621a294750ad775ef63fd990b/weights) | [Ultralytics](https://docs.ultralytics.com) |
 | **Edge deployment**<br><img alt="Raspberry Pi" src="https://img.shields.io/badge/Raspberry%20Pi-5-A22846?logo=raspberrypi&logoColor=white"> | CPU-only inference at 2–5 fps with no internet or accelerator; serial link at 115,200 baud: [`config.yaml`](https://github.com/sp4ce-cowboy/AddamNet/blob/7c47efae85a2158621a294750ad775ef63fd990b/config.yaml) | [Raspberry Pi](https://www.raspberrypi.com/documentation/) |
 | **Interactive 3D on the web**<br><img alt="Three.js" src="https://img.shields.io/badge/Three.js-r128-000000?logo=threedotjs&logoColor=white"> | The generated viewer: point cloud, mesh, trajectory, colour modes: [live demo](https://sp4ce-cowboy.github.io/AddamNet/slam-viewer/) | [Three.js](https://threejs.org/docs/) |
-| **System integration** | Firmware, model and SLAM wired into one FastAPI and WebSocket dashboard (the dashboard prototype generated with Claude): [`app/`](https://github.com/sp4ce-cowboy/AddamNet/tree/7c47efae85a2158621a294750ad775ef63fd990b/app) | [FastAPI](https://fastapi.tiangolo.com) |
+| **System integration** | Firmware, model and SLAM wired into one FastAPI and WebSocket dashboard: [`app/`](https://github.com/sp4ce-cowboy/AddamNet/tree/7c47efae85a2158621a294750ad775ef63fd990b/app) | [FastAPI](https://fastapi.tiangolo.com) |
 | **Research & technical writing** | A 59-page dissertation: literature, design, evaluation, limitations and future work | — |
 
 ## Results
