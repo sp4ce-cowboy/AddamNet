@@ -1,0 +1,10 @@
+#demo-banner {
+  background: #1c2129;
+  border-bottom: 1px solid #2a3040;
+  color: #c9d1d9;
+  font-size: .8rem;
+  line-height: 1.5;
+  padding: .45rem 1rem;
+}
+#demo-banner a { color: #58a6ff; }
+#demo-banner a:last-child { margin-left: .4rem; white-space: nowrap; }

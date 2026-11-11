@@ -74,7 +74,7 @@ pins exceeded the Uno's memory and I/O.
 | Sharp GP2Y0A02YK0F infrared | Distance | Forward ranging, a second physical principle |
 | HW-201 infrared | Obstacle present | Collision warning |
 | MQ-135 | Gas, as raw ADC plus a quality band | Air quality and safety |
-| DHT11 | Temperature and humidity | Environment |
+| DHT-22 | Temperature and humidity | Environment |
 
 - **Calibration** ([`mpuCalibrate`](https://github.com/sp4ce-cowboy/AddamNet/blob/7c47efae85a2158621a294750ad775ef63fd990b/arduino/sensor_suite.ino#L256-L305)):
   - At start-up, the IMU averages 500 readings while still, to get per-axis gyroscope and
@@ -94,14 +94,17 @@ pins exceeded the Uno's memory and I/O.
 
 - **Model choice:** YOLOv8n, the smallest YOLOv8. It was chosen for CPU-only latency on the
   Pi, trading some accuracy for speed and deployability.
-- **Data:** about 22,000 labelled pipe-inspection images with 22,279 bounding boxes, in YOLO
-  format, across six classes: deformation, obstacle, rupture, disconnect, misalignment and
-  deposition. The classes are moderately imbalanced: obstacle has 5,912 boxes, disconnect
-  1,948.
+- **Data:** the [Pipeline Defect Dataset](https://www.kaggle.com/datasets/simplexitypipeline/pipeline-defect-dataset) by simplexity-Pipeline on Kaggle
+  ([CC BY-NC-SA 4.0](https://creativecommons.org/licenses/by-nc-sa/4.0/)), frames from robot
+  inspection videos. 22,120 images (17,639 for training, 4,481 for validation) in YOLO format,
+  with 22,279 bounding boxes in the training set, across six classes: deformation, obstacle,
+  rupture, disconnect, misalignment and deposition. The classes are moderately imbalanced:
+  obstacle has 5,912 boxes, disconnect 1,948.
 - **Training:** transfer learning from COCO-pretrained weights with the Ultralytics CLI
   (`yolo detect train model=yolov8n.pt epochs=1 batch=32 imgsz=480 device=mps`).
 
 ![Validation predictions](docs/images/yolo-validation.jpg)
+<sub>Validation predictions on frames from the Pipeline Defect Dataset (CC BY-NC-SA 4.0).</sub>
 
 - **Runtime:** inference at 320 px with a 0.35 confidence threshold, at 2–5 fps on the Pi.
   Detections are logged with the sensor readings of that moment, and a per-class cooldown keeps
@@ -168,6 +171,10 @@ weights. I integrated and deployed it.
   - System: services and latency.
 - **Configuration:** one `config.yaml` covers the video source, model, serial port, cooldown,
   SLAM and server.
+- **Online demo** ([`docs/demo`](docs/demo), live on GitHub Pages): the dashboard's own HTML, CSS
+  and JavaScript, with a small shim standing in for the server. It replays a recorded run of the
+  real dashboard: the 7-epoch model's detections on dataset frames, live SLAM on the sample clip,
+  and simulated sensors.
 
 ## 8. Decisions and trade-offs
 
@@ -185,9 +192,10 @@ weights. I integrated and deployed it.
 - **End to end:** confirmed working on the target hardware. Sensing, detection, SLAM and the
   dashboard run together offline.
 - **IMU:** drift went from −3.4 °/s bias to under 0.5 °/s residual after calibration.
-- **Detection:** the reported model is a **single-epoch baseline**. Precision 0.267, recall
-  0.253, mAP@0.5 0.242, mAP@0.5:0.95 0.081. It needs much longer training before it is
-  reliable.
+- **Detection:** the dissertation reports a **single-epoch baseline**: precision 0.267, recall
+  0.253, mAP@0.5 0.242, mAP@0.5:0.95 0.081. A follow-up run (batch 16, 480 px) reached, after 7
+  epochs, precision 0.507, recall 0.443, mAP@0.5 0.447 and mAP@0.5:0.95 0.256, still rising each
+  epoch (`weights/best_7epoch.pt`). It needs longer training still before it is reliable.
 - **SLAM:** scale-ambiguous, with no loop closure. Low texture and reflections inside steel
   pipes make tracking hard.
 - **Throughput:** 2–5 fps of inference on the Pi's CPU.
