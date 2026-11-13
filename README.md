@@ -96,7 +96,7 @@ years by finding defects early, with a robot instead of a person.
 </p>
 <p align="center"><sub>The 3D viewer (2,334 points, 24,025 faces, 254 camera poses; <a href="https://sp4ce-cowboy.github.io/AddamNet/slam-viewer/">try it live</a>) · live telemetry · defects along the pipe. Dashboard captures from a sample pipe video, with the sensors simulated</sub></p>
 
-## Skills shown
+## Skills covered
 
 | Skill | Where it shows (click the links for the code) | Docs |
 |---|---|---|
